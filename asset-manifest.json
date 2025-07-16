@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/Investor-Data-Room/static/css/main.e6c13ad2.css",
+    "main.js": "/Investor-Data-Room/static/js/main.11cbd137.js",
+    "static/js/453.dbd5b1fb.chunk.js": "/Investor-Data-Room/static/js/453.dbd5b1fb.chunk.js",
+    "index.html": "/Investor-Data-Room/index.html",
+    "main.e6c13ad2.css.map": "/Investor-Data-Room/static/css/main.e6c13ad2.css.map",
+    "main.11cbd137.js.map": "/Investor-Data-Room/static/js/main.11cbd137.js.map",
+    "453.dbd5b1fb.chunk.js.map": "/Investor-Data-Room/static/js/453.dbd5b1fb.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e6c13ad2.css",
+    "static/js/main.11cbd137.js"
+  ]
+}
