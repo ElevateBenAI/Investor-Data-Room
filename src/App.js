@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'; // Added useRef
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, getDoc, setDoc, getDocs } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // NEW: Firebase Storage imports
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Changed uploadBytesResumable to uploadBytes
 
 // Main App component
 const App = () => {
@@ -25,13 +25,13 @@ const App = () => {
 
   // NEW: State for file upload
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0); // Still useful for visual feedback if needed
   const [isUploading, setIsUploading] = useState(false);
 
   // NEW: State for LLM insight feature
   const [llmInsight, setLlmInsight] = useState(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
-  const [showInsightModal, setShowInsightModal] = useState(false); // Used to control AI Insight modal visibility
+  const [showInsightModal, setShowInsightModal] = useState(false);
 
 
   const dropZoneRef = useRef(null); // Ref for the drag-and-drop area
@@ -42,13 +42,13 @@ const App = () => {
   // NOTE: When running in Canvas, __app_id, __firebase_config, and __initial_auth_token are provided.
   // For local development, these local* variables are used.
   const localAppId = 'elevate-data-room-local'; // A placeholder app ID for local development
-const localFirebaseConfig = {
-  apiKey: "AIzaSyAWtjdXc_ORZbE4-0GcCRC1xVMjF3NEeYg",
-  authDomain: "investor-data-room-96aa7.firebaseapp.com",
-  projectId: "investor-data-room-96aa7",
-  storageBucket: "investor-data-room-96aa7.appspot.com",
-  messagingSenderId: "255074366663",
-  appId: "1:255074366663:web:13483dcdab8d1029fdfae2"
+  const localFirebaseConfig = {
+    apiKey: "AIzaSyAWtjdXc_ORZbE4-0GcCRC1xVMjF3NEeYg", // Your actual Firebase API Key
+    authDomain: "investor-data-room-96aa7.firebaseapp.com", // Your actual Auth Domain
+    projectId: "investor-data-room-96aa7", // Your actual Project ID
+    storageBucket: "investor-data-room-96aa7.appspot.com", // Your actual Storage Bucket
+    messagingSenderId: "255074366663", // Your actual Messaging Sender ID
+    appId: "1:255074366663:web:13483dcdab8d1029fdfae2" // Your actual App ID
   };
   const localInitialAuthToken = null; // Placeholder for Canvas
 
@@ -187,7 +187,6 @@ const localFirebaseConfig = {
       setIsDragging(false);
       const droppedFiles = e.dataTransfer.files;
       if (droppedFiles.length > 0) {
-        // For simplicity, we'll take the first file's name
         setFileName(droppedFiles[0].name);
         setSelectedFile(droppedFiles[0]); // NEW: Set the selected file for upload
         showCustomModal(`File "${droppedFiles[0].name}" selected. Click "Upload File" to proceed.`);
@@ -217,7 +216,7 @@ const localFirebaseConfig = {
     }
   };
 
-  // NEW: Handle file upload to Firebase Storage
+  // NEW: Simplified handleFileUpload using uploadBytes
   const handleFileUpload = async () => {
     if (!selectedFile) {
       showCustomModal('Please select a file first.');
@@ -229,48 +228,32 @@ const localFirebaseConfig = {
     }
 
     setIsUploading(true);
-    setUploadProgress(0);
-    setError('');
+    setUploadProgress(0); // Reset progress
+    setError(''); // Clear previous errors
 
     try {
-      const storage = getStorage(); // Get Firebase Storage instance
+      const storage = getStorage();
       const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
-      // Define storage path: artifacts/{appId}/files/{userId}/{filename}
-      // This path is private to the uploader, but the URL will be public.
-      const storageRef = ref(storage, `artifacts/${currentAppId}/files/${userId}/${selectedFile.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+      const fileRef = ref(storage, `artifacts/${currentAppId}/files/${userId}/${selectedFile.name}`);
 
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          // Observe state change events such as progress, pause, and resume
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (uploadError) => {
-          // Handle unsuccessful uploads
-          console.error("Upload error:", uploadError);
-          setError(`File upload failed: ${uploadError.message}`);
-          setIsUploading(false);
-          showCustomModal(`File upload failed: ${uploadError.message}`);
-        },
-        async () => {
-          // Handle successful uploads on complete
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          setFileUrl(downloadURL); // Set the obtained download URL
-          setIsUploading(false);
-          setUploadProgress(0);
-          showCustomModal('File uploaded successfully! Now click "Add Document Link" to add it to the data room.');
-        }
-      );
-    } catch (e) {
-      console.error("Firebase Storage setup error:", e);
-      setError(`Storage setup failed: ${e.message}`);
+      // Use uploadBytes directly
+      const snapshot = await uploadBytes(fileRef, selectedFile);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      setFileUrl(downloadURL); // Set the obtained download URL
       setIsUploading(false);
-      showCustomModal(`Storage setup failed: ${e.message}`);
+      setUploadProgress(100); // Set to 100% on completion
+      showCustomModal('File uploaded successfully! Now click "Add Document Link" to add it to the data room.');
+    } catch (err) {
+      console.error("Upload error:", err);
+      setError(`File upload failed: ${err.message}`);
+      setIsUploading(false);
+      setUploadProgress(0);
+      showCustomModal(`File upload failed: ${err.message}`);
     }
   };
 
-  // NEW: Function to call Gemini API for document insight
+  // Function to call Gemini API for document insight
   const generateDocumentInsight = async (docName) => {
     setIsGeneratingInsight(true);
     setLlmInsight(null); // Clear previous insight
