@@ -42,13 +42,13 @@ const App = () => {
   // NOTE: When running in Canvas, __app_id, __firebase_config, and __initial_auth_token are provided.
   // For local development, these local* variables are used.
   const localAppId = 'elevate-data-room-local'; // A placeholder app ID for local development
-  const localFirebaseConfig = {
-    apiKey: "AIzaSyAWtjdXc_ORZbE4-0GcCRC1xVMjF3NEeYg", // Your actual Firebase API Key
-    authDomain: "investor-data-room-96aa7.firebaseapp.com", // Your actual Auth Domain
-    projectId: "investor-data-room-96aa7", // Your actual Project ID
-    storageBucket: "investor-data-room-96aa7.appspot.com", // Your actual Storage Bucket
-    messagingSenderId: "255074366663", // Your actual Messaging Sender ID
-    appId: "1:255074366663:web:13483dcdab8d1029fdfae2" // Your actual App ID
+const localFirebaseConfig = {
+  apiKey: "AIzaSyAWtjdXc_ORZbE4-0GcCRC1xVMjF3NEeYg",
+  authDomain: "investor-data-room-96aa7.firebaseapp.com",
+  projectId: "investor-data-room-96aa7",
+  storageBucket: "investor-data-room-96aa7.appspot.com",
+  messagingSenderId: "255074366663",
+  appId: "1:255074366663:web:13483dcdab8d1029fdfae2"
   };
   const localInitialAuthToken = null; // Placeholder for Canvas
 
