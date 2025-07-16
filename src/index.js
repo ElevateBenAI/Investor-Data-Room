@@ -1,8 +1,8 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import './index.css';
-import App from './App';
-import reportWebVitals from './reportWebVitals';
+import ReactDOM from 'react-dom/client'; // Note: Using React 18's createRoot
+import './index.css'; // Assuming you have an index.css
+import App from './App'; // Import your App component
+import reportWebVitals from './reportWebVitals'; // For performance metrics
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
