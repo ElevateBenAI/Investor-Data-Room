@@ -31,7 +31,7 @@ const App = () => {
   // NEW: State for LLM insight feature
   const [llmInsight, setLlmInsight] = useState(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
-  const [showInsightModal, setShowInsightModal] = useState(false);
+  const [showInsightModal, setShowInsightModal] = useState(false); // Used to control AI Insight modal visibility
 
 
   const dropZoneRef = useRef(null); // Ref for the drag-and-drop area
@@ -56,7 +56,7 @@ const App = () => {
   useEffect(() => {
     try {
       // Use the global Canvas variables if they exist, otherwise use local placeholders
-      const appId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
+      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId; // Changed to currentAppId
       const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
       const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : localInitialAuthToken;
 
@@ -101,7 +101,7 @@ const App = () => {
       setError(`Failed to initialize Firebase: ${e.message}`);
       setLoading(false);
     }
-  }, []);
+  }, [localFirebaseConfig]); // Added localFirebaseConfig to dependencies
 
   // Fetch and set user role
   useEffect(() => {
@@ -138,7 +138,7 @@ const App = () => {
     if (isAuthReady && db && userId) {
       assignUserRole();
     }
-  }, [db, userId, isAuthReady]); // Depend on db, userId, and isAuthReady
+  }, [db, userId, isAuthReady, localAppId]); // Added localAppId to dependencies
 
   // Fetch files when db, userId, and userRole are ready
   useEffect(() => {
@@ -165,7 +165,7 @@ const App = () => {
 
       return () => unsubscribe(); // Cleanup snapshot listener
     }
-  }, [db, userId, userRole]); // Add userRole to dependencies
+  }, [db, userId, userRole, localAppId]); // Added localAppId to dependencies
 
   // Drag and Drop Handlers
   useEffect(() => {
@@ -445,6 +445,40 @@ const App = () => {
             </div>
             <div className="p-4 border-t border-gray-200 text-center text-gray-600 text-sm">
               Note: Print and download options are controlled by the external document host and your browser, not by this application.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Insight Modal */}
+      {showInsightModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-800">AI Document Insight</h3>
+              <button
+                onClick={() => setShowInsightModal(false)}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                &times;
+              </button>
+            </div>
+            <div className="flex-grow p-4 overflow-y-auto">
+              {isGeneratingInsight ? (
+                <p className="text-gray-600 text-center">Generating insights...</p>
+              ) : llmInsight ? (
+                <p className="text-gray-800 whitespace-pre-wrap">{llmInsight}</p>
+              ) : (
+                <p className="text-gray-600 text-center">No insight generated or an error occurred.</p>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200 text-center">
+              <button
+                onClick={() => setShowInsightModal(false)}
+                className="px-6 py-2 bg-[#1D68E5] text-white rounded-md hover:bg-blue-700 transition duration-300 shadow-md"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
