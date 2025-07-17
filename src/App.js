@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, query, getDoc, setDoc, getDocs } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage'; // Changed uploadBytesResumable to uploadBytes
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Main App component
 const App = () => {
   const [db, setDb] = useState(null);
   const [auth, setAuth] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [userRole, setUserRole] = useState('loading'); // 'loading', 'admin', 'investor'
+  const [userRole, setUserRole] = useState('loading');
   const [files, setFiles] = useState([]);
   const [fileName, setFileName] = useState('');
   const [fileUrl, setFileUrl] = useState('');
@@ -21,42 +21,36 @@ const App = () => {
   const [showDocumentViewer, setShowDocumentViewer] = useState(false);
   const [documentToViewUrl, setDocumentToViewUrl] = useState('');
   const [documentToViewName, setDocumentToViewName] = useState('');
-  const [isDragging, setIsDragging] = useState(false); // State for drag-and-drop visual feedback
+  const [isDragging, setIsDragging] = useState(false);
 
-  // NEW: State for file upload
+  // File upload
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploadProgress, setUploadProgress] = useState(0); // Still useful for visual feedback if needed
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
-  // NEW: State for LLM insight feature
+  // AI insight
   const [llmInsight, setLlmInsight] = useState(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [showInsightModal, setShowInsightModal] = useState(false);
 
+  const dropZoneRef = useRef(null);
 
-  const dropZoneRef = useRef(null); // Ref for the drag-and-drop area
-
-
-  // Define values for Firebase configuration when running locally.
-  // These are your actual Firebase project's config details.
-  // NOTE: When running in Canvas, __app_id, __firebase_config, and __initial_auth_token are provided.
-  // For local development, these local* variables are used.
-  const localAppId = 'elevate-data-room-local'; // A placeholder app ID for local development
+  // Firebase config
+  const localAppId = 'elevate-data-room-local';
   const localFirebaseConfig = {
-    apiKey: "AIzaSyAWtjdXc_ORZbE4-0GcCRC1xVMjF3NEeYg", // Your actual Firebase API Key
-    authDomain: "investor-data-room-96aa7.firebaseapp.com", // Your actual Auth Domain
-    projectId: "investor-data-room-96aa7", // Your actual Project ID
-    storageBucket: "investor-data-room-96aa7.appspot.com", // Your actual Storage Bucket
-    messagingSenderId: "255074366663", // Your actual Messaging Sender ID
-    appId: "1:255074366663:web:13483dcdab8d1029fdfae2" // Your actual App ID
+    apiKey: "AIzaSyAWtjdXc_ORZbE4-0GcCRC1xVMjF3NEeYg",
+    authDomain: "investor-data-room-96aa7.firebaseapp.com",
+    projectId: "investor-data-room-96aa7",
+    storageBucket: "investor-data-room-96aa7.appspot.com",
+    messagingSenderId: "255074366663",
+    appId: "1:255074366663:web:13483dcdab8d1029fdfae2"
   };
-  const localInitialAuthToken = null; // Placeholder for Canvas
+  const localInitialAuthToken = null;
 
   // Firebase Initialization and Authentication
   useEffect(() => {
     try {
-      // Use the global Canvas variables if they exist, otherwise use local placeholders
-      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId; // Changed to currentAppId
+      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
       const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : localFirebaseConfig;
       const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : localInitialAuthToken;
 
@@ -79,48 +73,43 @@ const App = () => {
           setIsAuthReady(true);
         } else {
           try {
-            // Attempt to sign in with custom token if available
             if (initialAuthToken) {
               await signInWithCustomToken(firebaseAuth, initialAuthToken);
             } else {
-              // Fallback to anonymous sign-in if no custom token
               await signInAnonymously(firebaseAuth);
             }
           } catch (authError) {
             console.error("Firebase authentication error:", authError);
             setError(`Authentication failed: ${authError.message}`);
           }
-          setIsAuthReady(true); // Auth state checked, ready to proceed
+          setIsAuthReady(true);
         }
         setLoading(false);
       });
 
-      return () => unsubscribe(); // Cleanup auth listener
+      return () => unsubscribe();
     } catch (e) {
       console.error("Error initializing Firebase:", e);
       setError(`Failed to initialize Firebase: ${e.message}`);
       setLoading(false);
     }
-  }, [localFirebaseConfig]); // Added localFirebaseConfig to dependencies
+  }, [localFirebaseConfig]);
 
   // Fetch and set user role
   useEffect(() => {
     const assignUserRole = async () => {
       if (!db || !userId || !isAuthReady) return;
 
-      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId; // Use currentAppId for Firestore path
-      // Updated path for user_roles to follow public data convention
+      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
       const userRoleDocRef = doc(db, `artifacts/${currentAppId}/public/data/user_roles`, userId);
       const userRoleDocSnap = await getDoc(userRoleDocRef);
 
       if (userRoleDocSnap.exists()) {
         setUserRole(userRoleDocSnap.data().role);
       } else {
-        // If user role doesn't exist, check if any admin exists
-        // Updated path for user_roles to follow public data convention
         const rolesCollectionRef = collection(db, `artifacts/${currentAppId}/public/data/user_roles`);
         const q = query(rolesCollectionRef);
-        const querySnapshot = await getDocs(q); // Use getDocs to check for existing roles
+        const querySnapshot = await getDocs(q);
 
         let isAdminPresent = false;
         querySnapshot.forEach(doc => {
@@ -138,24 +127,20 @@ const App = () => {
     if (isAuthReady && db && userId) {
       assignUserRole();
     }
-  }, [db, userId, isAuthReady, localAppId]); // Added localAppId to dependencies
+  }, [db, userId, isAuthReady, localAppId]);
 
-  // Fetch files when db, userId, and userRole are ready
+  // Fetch files
   useEffect(() => {
-    if (db && userId && userRole !== 'loading') { // Ensure userRole is loaded
-      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId; // Use currentAppId for Firestore path
-      // CHANGE: Fetch from public collection
+    if (db && userId && userRole !== 'loading') {
+      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
       const filesCollectionRef = collection(db, `artifacts/${currentAppId}/public/data/files`);
-      // Note: orderBy is commented out as per instructions to avoid potential index issues.
-      // Data will be sorted client-side if needed.
-      const q = query(filesCollectionRef); // , orderBy('timestamp', 'desc')
+      const q = query(filesCollectionRef);
 
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const fetchedFiles = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
-        // Client-side sorting by timestamp (newest first)
         fetchedFiles.sort((a, b) => b.timestamp - a.timestamp);
         setFiles(fetchedFiles);
       }, (err) => {
@@ -163,17 +148,17 @@ const App = () => {
         setError(`Failed to load files: ${err.message}`);
       });
 
-      return () => unsubscribe(); // Cleanup snapshot listener
+      return () => unsubscribe();
     }
-  }, [db, userId, userRole, localAppId]); // Added localAppId to dependencies
+  }, [db, userId, userRole, localAppId]);
 
-  // Drag and Drop Handlers
+  // --- REPLACEMENT: Drag and Drop Handler & Auto-upload ---
   useEffect(() => {
     const dropZone = dropZoneRef.current;
-    if (!dropZone || userRole !== 'admin') return; // Only enable for admin
+    if (!dropZone || userRole !== 'admin') return;
 
     const handleDragOver = (e) => {
-      e.preventDefault(); // Prevent default to allow drop
+      e.preventDefault();
       setIsDragging(true);
     };
 
@@ -182,14 +167,13 @@ const App = () => {
       setIsDragging(false);
     };
 
-    const handleDrop = (e) => {
+    // This handler now triggers the new logic: auto-upload and add
+    const handleDrop = async (e) => {
       e.preventDefault();
       setIsDragging(false);
       const droppedFiles = e.dataTransfer.files;
       if (droppedFiles.length > 0) {
-        setFileName(droppedFiles[0].name);
-        setSelectedFile(droppedFiles[0]); // NEW: Set the selected file for upload
-        showCustomModal(`File "${droppedFiles[0].name}" selected. Click "Upload File" to proceed.`);
+        await handleFileUploadAndAdd(droppedFiles[0]);
       }
     };
 
@@ -202,48 +186,45 @@ const App = () => {
       dropZone.removeEventListener('dragleave', handleDragLeave);
       dropZone.removeEventListener('drop', handleDrop);
     };
-  }, [userRole]); // Re-run effect if userRole changes
+  }, [userRole, db, userId]);
 
-  // NEW: Handle file selection from input
-  const handleFileChange = (e) => {
-    if (e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      setFileName(e.target.files[0].name);
-      showCustomModal(`File "${e.target.files[0].name}" selected. Click "Upload File" to proceed.`);
-    } else {
-      setSelectedFile(null);
-      setFileName('');
-    }
-  };
+  // --- NEW: Unified Upload & Add Logic for Drag/Drop ---
+  const handleFileUploadAndAdd = async (file) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    setError('');
+    setFileName(file.name);
+    setSelectedFile(file);
 
-  // NEW: Simplified handleFileUpload using uploadBytes
-  const handleFileUpload = async () => {
-    if (!selectedFile) {
-      showCustomModal('Please select a file first.');
-      return;
-    }
     if (!db || !userId || !auth) {
       showCustomModal('Firebase services not ready. Please try again.');
+      setIsUploading(false);
       return;
     }
-
-    setIsUploading(true);
-    setUploadProgress(0); // Reset progress
-    setError(''); // Clear previous errors
 
     try {
       const storage = getStorage();
       const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
-      const fileRef = ref(storage, `artifacts/${currentAppId}/files/${userId}/${selectedFile.name}`);
+      const fileRef = ref(storage, `artifacts/${currentAppId}/files/${userId}/${file.name}`);
 
-      // Use uploadBytes directly
-      const snapshot = await uploadBytes(fileRef, selectedFile);
+      // Upload file
+      const snapshot = await uploadBytes(fileRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
-      setFileUrl(downloadURL); // Set the obtained download URL
+      setFileUrl(downloadURL);
+
+      // Add Firestore document
+      await addDoc(collection(db, `artifacts/${currentAppId}/public/data/files`), {
+        name: file.name,
+        url: downloadURL,
+        timestamp: Date.now(),
+        uploaderId: userId,
+      });
+
+      setSelectedFile(null);
       setIsUploading(false);
-      setUploadProgress(100); // Set to 100% on completion
-      showCustomModal('File uploaded successfully! Now click "Add Document Link" to add it to the data room.');
+      setUploadProgress(100);
+      showCustomModal('File uploaded and document link added successfully!');
     } catch (err) {
       console.error("Upload error:", err);
       setError(`File upload failed: ${err.message}`);
@@ -253,19 +234,37 @@ const App = () => {
     }
   };
 
-  // Function to call Gemini API for document insight
+  // Manual file selection handler (for admins)
+  const handleFileChange = (e) => {
+    if (e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+      setFileName(e.target.files[0].name);
+    } else {
+      setSelectedFile(null);
+      setFileName('');
+    }
+  };
+
+  // Manual upload button (for admins)
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      showCustomModal('Please select a file first.');
+      return;
+    }
+    await handleFileUploadAndAdd(selectedFile);
+  };
+
+  // Gemini API for insight
   const generateDocumentInsight = async (docName) => {
     setIsGeneratingInsight(true);
-    setLlmInsight(null); // Clear previous insight
+    setLlmInsight(null);
     setModalMessage('Generating AI insights...');
-    setShowModal(true); // Show modal with loading message
+    setShowInsightModal(true);
 
     const prompt = `Generate a concise, investor-friendly summary (max 3 sentences) and 3 key questions an investor might ask about a document titled "${docName}". Format as: "Summary: [summary text]\nKey Questions:\n- [Question 1]\n- [Question 2]\n- [Question 3]".`;
 
     try {
       const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-      // FIX: Robustly get API key for browser environment
-      // Use __api_key if available (from Canvas), otherwise use REACT_APP_GEMINI_API_KEY from .env
       const apiKey = typeof __api_key !== 'undefined' ? __api_key : process.env.REACT_APP_GEMINI_API_KEY;
       const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
@@ -286,7 +285,7 @@ const App = () => {
           result.candidates[0].content.parts.length > 0) {
         const text = result.candidates[0].content.parts[0].text;
         setLlmInsight(text);
-        setModalMessage(text); // Update modal with insight
+        setModalMessage(text);
       } else {
         setModalMessage("Failed to generate insight. Please try again.");
       }
@@ -298,13 +297,12 @@ const App = () => {
     }
   };
 
-  // Function to show custom modal messages
   const showCustomModal = (message) => {
     setModalMessage(message);
     setShowModal(true);
   };
 
-  // Handle adding a new file entry
+  // Add file via manual entry for admins (still shown for parity)
   const handleAddFile = async () => {
     if (userRole !== 'admin') {
       showCustomModal('Permission denied. Only administrators can add files.');
@@ -321,17 +319,16 @@ const App = () => {
     }
 
     try {
-      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId; // Use currentAppId for Firestore path
-      // CHANGE: Add to public collection
+      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
       await addDoc(collection(db, `artifacts/${currentAppId}/public/data/files`), {
         name: fileName.trim(),
         url: fileUrl.trim(),
         timestamp: Date.now(),
-        uploaderId: userId, // Store uploaderId to enforce write/delete rules
+        uploaderId: userId,
       });
       setFileName('');
       setFileUrl('');
-      setSelectedFile(null); // Clear selected file after adding
+      setSelectedFile(null);
       showCustomModal('Document link added successfully!');
     } catch (e) {
       console.error("Error adding document: ", e);
@@ -339,7 +336,6 @@ const App = () => {
     }
   };
 
-  // Handle deleting a file entry
   const handleDeleteFile = async (fileId) => {
     if (userRole !== 'admin') {
       showCustomModal('Permission denied. Only administrators can delete files.');
@@ -352,8 +348,7 @@ const App = () => {
     }
 
     try {
-      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId; // Use currentAppId for Firestore path
-      // CHANGE: Delete from public collection
+      const currentAppId = typeof __app_id !== 'undefined' ? __app_id : localAppId;
       await deleteDoc(doc(db, `artifacts/${currentAppId}/public/data/files`, fileId));
       showCustomModal('Document entry deleted successfully!');
     } catch (e) {
@@ -362,7 +357,6 @@ const App = () => {
     }
   };
 
-  // Function to handle viewing a document for investors
   const handleViewDocument = (fileUrl, fileName) => {
     setDocumentToViewUrl(fileUrl);
     setDocumentToViewName(fileName);
@@ -391,7 +385,7 @@ const App = () => {
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full text-center">
-            <p className="text-lg mb-4 whitespace-pre-wrap">{modalMessage}</p> {/* Added whitespace-pre-wrap */}
+            <p className="text-lg mb-4 whitespace-pre-wrap">{modalMessage}</p>
             <button
               onClick={() => setShowModal(false)}
               className="px-6 py-2 bg-[#1D68E5] text-white rounded-md hover:bg-blue-700 transition duration-300 shadow-md"
@@ -416,7 +410,6 @@ const App = () => {
               </button>
             </div>
             <div className="flex-grow p-4">
-              {/* Google Docs Viewer for various document types */}
               <iframe
                 src={`https://docs.google.com/viewer?url=${encodeURIComponent(documentToViewUrl)}&embedded=true`}
                 className="w-full h-full border-0 rounded-md"
@@ -471,7 +464,7 @@ const App = () => {
         {/* Elevate Innovations Logo */}
         <div className="flex justify-center mb-6">
           <img
-            src="https://i.imgur.com/HtCyaCR.png" // Updated Logo URL
+            src="https://i.imgur.com/HtCyaCR.png"
             alt="Elevate Innovations Logo"
             className="h-24 sm:h-32 object-contain"
             onError={(e) => { e.target.onerror = null; e.target.src = "https://placehold.co/150x75/E0E0E0/000000?text=Logo"; }}
@@ -491,15 +484,15 @@ const App = () => {
 
         {/* Add New File Section (Admin only) */}
         {userRole === 'admin' && (
-          <div className="mb-8 p-6 bg-[#EBF4FA] rounded-lg shadow-inner"> {/* Light blue background */}
+          <div className="mb-8 p-6 bg-[#EBF4FA] rounded-lg shadow-inner">
             <h2 className="text-2xl font-semibold text-[#00193A] mb-4">Add New Document Link</h2>
-            {/* NEW: Drag and Drop Zone */}
+            {/* Drag and Drop Zone */}
             <div
-              ref={dropZoneRef} // Attach ref to the drop zone
+              ref={dropZoneRef}
               className={`border-2 border-dashed rounded-lg p-6 text-center mb-4 transition-all duration-300
                           ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-white hover:border-blue-400'}`}
             >
-              <p className="text-gray-600 mb-2">Drag & Drop a file here to auto-fill its name</p>
+              <p className="text-gray-600 mb-2">Drag & Drop a file here to upload & add document link automatically</p>
               <p className="text-sm text-gray-500">
                 (You can also select a file below)
               </p>
@@ -534,7 +527,7 @@ const App = () => {
                   disabled={isUploading}
                   className="mt-3 w-full bg-green-600 text-white py-2 rounded-lg font-semibold text-sm hover:bg-green-700 transition duration-300 shadow-md transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isUploading ? `Uploading (${Math.round(uploadProgress)}%)` : 'Upload File to Storage'}
+                  {isUploading ? `Uploading (${Math.round(uploadProgress)}%)` : 'Upload & Add Document Link'}
                 </button>
               </div>
             )}
@@ -549,16 +542,16 @@ const App = () => {
               />
               <input
                 type="url"
-                placeholder="External Document URL (or auto-filled after upload)"
+                placeholder="External Document URL (auto-filled after upload)"
                 value={fileUrl}
                 onChange={(e) => setFileUrl(e.target.value)}
                 className="p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1D68E5] focus:border-[#1D68E5] transition duration-200 w-full"
-                disabled={isUploading} // Disable if uploading
+                disabled={isUploading}
               />
             </div>
             <button
               onClick={handleAddFile}
-              disabled={isUploading || !fileUrl.trim() || !fileName.trim()} // Disable if uploading or missing info
+              disabled={isUploading || !fileUrl.trim() || !fileName.trim()}
               className="mt-6 w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-indigo-700 transition duration-300 shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Add Document Link
@@ -583,7 +576,7 @@ const App = () => {
                     <p className="text-sm text-gray-500 break-all">{file.url}</p>
                   </div>
                   <div className="flex space-x-2">
-                    {userRole === 'admin' ? ( // Admin sees Download and Delete
+                    {userRole === 'admin' ? (
                       <>
                         <button
                           onClick={() => generateDocumentInsight(file.name)}
@@ -613,7 +606,7 @@ const App = () => {
                           Delete
                         </button>
                       </>
-                    ) : ( // Investor sees only View Document
+                    ) : (
                       <button
                         onClick={() => handleViewDocument(file.url, file.name)}
                         className="px-4 py-2 bg-[#1D68E5] text-white rounded-md hover:bg-[#00193A] transition duration-300 shadow-md flex items-center"
