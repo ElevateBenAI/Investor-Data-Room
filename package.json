@@ -1,20 +1,4 @@
 {
-  "name": "watermark-service",
-  "version": "1.0.0",
-  "description": "Simple PDF watermark service using pdf-lib",
-  "main": "index.js",
-  "type": "commonjs",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "node-fetch": "^3.3.2",
-    "pdf-lib": "^1.17.1"
-  }
-}
-{
   "name": "elevate-data-room",
   "version": "0.1.0",
   "private": true,
