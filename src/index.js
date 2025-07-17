@@ -11,8 +11,3 @@ root.render(
   </React.StrictMode>
 );
 
-<<<<<<< HEAD
-reportWebVitals();
-=======
-reportWebVitals();
->>>>>>> ed53a0f (Initial commit)
